@@ -100,16 +100,17 @@ public class Arcade {
         String prizeQuery = "SELECT * FROM " + PRIZE_TABLE_NAME;
         prizeData = stmt.executeQuery(prizeQuery);
 
-        if (prizeData == null) {
+        if (!prizeData.next()) {
             System.out.println("No prizes available!");
             return;
         }
+        prizeData.beforeFirst();
 
-        String memberID = "//TODO populate here";
+        String memberID = "//TODO figure out command format";
         String memberQuery = "SELECT * FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
         ResultSet memberData = null;
         memberData = stmt.executeQuery(memberQuery);
-        if (memberData == null) {
+        if (!memberData.next()) {
             System.out.println("Member not found!");
             return;
         }
