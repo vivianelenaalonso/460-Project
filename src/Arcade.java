@@ -84,6 +84,74 @@ public class Arcade {
         }
     }
 
+    /**
+     * This function prints the prizes that the member is able to purchase based on
+     * the amount of tickets they have.
+     * 
+     * Query 3
+     * 
+     * @param dbConn  Connection to the database
+     * @param command String array of the command
+     * @throws SQLException
+     */
+    public static void validPrizePurchases(Connection dbConn, String[] command) throws SQLException {
+        ResultSet prizeData = null;
+        Statement stmt = dbConn.createStatement();
+        String prizeQuery = "SELECT * FROM " + PRIZE_TABLE_NAME;
+        prizeData = stmt.executeQuery(prizeQuery);
+
+        if (prizeData == null) {
+            System.out.println("No prizes available!");
+            return;
+        }
+
+        String memberID = "//TODO populate here";
+        String memberQuery = "SELECT * FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
+        ResultSet memberData = null;
+        memberData = stmt.executeQuery(memberQuery);
+        if (memberData == null) {
+            System.out.println("Member not found!");
+            return;
+        }
+
+        int ticketBalance = memberData.getInt("ticketBalance");
+        String tier = memberData.getString("tier");
+        if (tier.equals("Gold")) { // 10% discount
+            printPrizes(prizeData, ticketBalance, 0.9);
+        } else if (tier.equals("Diamond")) { // 20% discount
+            printPrizes(prizeData, ticketBalance, 0.8);
+        } else { // no discount
+            printPrizes(prizeData, ticketBalance, 1.0);
+        }
+
+    }
+
+    /**
+     * Helper function to print the prizes that the member is able to purchase.
+     * It is called by validPrizePurchases. Note that the discount applied rounds
+     * up to the nearest whole number.
+     * 
+     * @param prizeData     ResultSet of all prizes
+     * @param ticketBalance int ticket balance of the member
+     * @param discount      double representing the discount the member has
+     *                      (0.8, 0.9, or 1.0)
+     * @throws SQLException
+     */
+    public static void printPrizes(ResultSet prizeData, int ticketBalance, double discount) throws SQLException {
+        System.out.println("Prizes available for purchase:");
+        System.out.println("Prize ID | Prize Name | Ticket Price (inlcuding discount)");
+        System.out.println("-------------------------------------------------");
+        while (prizeData.next()) {
+            int ticketAmount = prizeData.getInt("basePrice");
+            int finalPrice = (int) Math.ceil((double) ticketAmount * discount);
+            if (ticketBalance >= finalPrice) {
+                String output = prizeData.getString("prizeID") + " | " + prizeData.getString("name") + " | "
+                        + ticketAmount + " | " + finalPrice;
+                System.out.println(output);
+            }
+        }
+    }
+
     public static void processQuery(String[] command, Connection dbConn) throws SQLException {
         if (command[0].equals("ADD")) {
             if (command[1].equalsIgnoreCase("PRIZE")) {
