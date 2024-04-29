@@ -333,8 +333,14 @@ public class Arcade {
         System.out.println("Enter your member ID: ");
         String memberID = scanner.nextLine();
         if (isMember(memberID, dbConn)) {
-            if (getTokens(memberID, dbConn) > 0) {
+        	int tokens;
+            if ((tokens = getTokens(memberID, dbConn)) > 0) {
                 // Ask to exchange for prize/discount
+            	System.out.println("You have " + tokens + "tokens, please"
+            			+ " exchange them for a prize or discount before closing "
+            			+ " your membership.");
+            	String[] commands = {"", "", memberID};
+            	queryThree(dbConn, commands);
             } else {
                 // Delete the member
                 deleteQuery(memberID, dbConn);
