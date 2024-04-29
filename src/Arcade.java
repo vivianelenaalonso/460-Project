@@ -20,10 +20,13 @@ public class Arcade {
 	private static final String TOKEN_PURCHASE_TIER_TABLE_NAME = "juliusramirez.TokenPurchaseTier";
 	private static final String TOKEN_TRANSACTION_TABLE_NAME = "juliusramirez.TokenTransaction";
 
+
     public static void addPrize(Connection dbConn, String[] params) throws SQLException {
         String prizeId = params[0];
         String prizeName = params[1];
         String ticketAmt = params[2];
+
+		System.out.println(prizeId + " " + prizeName + " " + ticketAmt);
 
         String query = "INSERT INTO " + PRIZE_TABLE_NAME + """
                 (
@@ -33,20 +36,19 @@ public class Arcade {
                 "'" + prizeName.replaceAll("'", "''") + "'," +
                 ticketAmt.replaceAll("'", "''") +
                 " )";
-
         Statement stmt = dbConn.createStatement();
         stmt.executeUpdate(query);
         stmt.close();
         System.out.println("Successfully added prize " + prizeId);
     }
 
-    public static String[] gatherPrizeInfo(Connection dbConn) throws SQLException {
-        Scanner scanner = new Scanner(System.in);
+
+    public static String[] gatherPrizeInfo(Connection dbConn, Scanner scanner) throws SQLException {
         String[] information = new String[3];
         int nextPrizeId;
 
         ResultSet answer = null;
-        String findIdsQuery = "SELECT prizeID FROM " + MEMBER_TABLE_NAME + " ORDER BY prizeID DESC";
+        String findIdsQuery = "SELECT prizeID FROM " + PRIZE_TABLE_NAME + " ORDER BY prizeID DESC";
         Statement stmt = dbConn.createStatement();
         answer = stmt.executeQuery(findIdsQuery);
         if (answer != null && answer.next()) {
@@ -61,7 +63,7 @@ public class Arcade {
             stmt.close();
         }
         
-        information[1] = String.valueOf(nextPrizeId);
+        information[0] = String.valueOf(nextPrizeId);
         System.out.println("Enter the name of the prize.");
         while (true) {
             information[1] = scanner.nextLine();
@@ -80,28 +82,69 @@ public class Arcade {
                 System.out.println("The cost in tickets should contain only numbers. Please try again below.");
             }
         }
-        scanner.close();
         return information;
     }
 
+
+	public static boolean isPrizeId(Connection dbConn, String prizeId) throws SQLException {
+		ResultSet answer = null;
+
+        String query = "SELECT * FROM " + PRIZE_TABLE_NAME + " " + """
+                WHERE prizeID = """ +
+                "'" + prizeId.replaceAll("'", "''") + "'";
+
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(query);
+
+		if (answer != null && answer.next()) {
+			answer.close();
+			return true;
+		}
+		answer.close();
+		return false;
+	}
+
+
 	public static void delPrize(Connection dbConn, String[] command) throws SQLException {
 		String prizeId = command[2];
-		String query = "DELETE FROM " + PRIZE_TABLE_NAME + """
+
+		// Check that prize id is given, and contains only numeric values.
+		if (command.length < 3) {
+			System.out.println("Missing prizeID of prize to delete." + 
+			" Please re-run command with the format: DELETE PRIZE <PRIZEID>." +
+			"\nYou can run SEARCH PRIZE <PRIZE NAME> to find prize IDs");
+			return;
+		}
+
+		if (!prizeId.matches("\\d+")) {
+			System.out.println("Invalid value for prizeID. PrizeID should" +
+			" only contain digits");
+			return;
+		}
+
+		// Check that the prize id given exists in the database.
+		if (!isPrizeId(dbConn, prizeId)) {
+			System.out.println("The prizeID you tried to delete does not " + 
+			"exist.\nYou can run SEARCH PRIZE <PRIZE NAME> to find prize IDs");
+			return;
+		}
+
+		String query = "DELETE FROM " + PRIZE_TABLE_NAME + " " + """
 				WHERE prizeID = """ + "'" + prizeId.replaceAll("'", "''") + "'";
 
         Statement stmt = dbConn.createStatement();
         stmt.executeUpdate(query);
         stmt.close();
-        System.out.println("Successfully deleted prize " + prizeId);
+        System.out.println("Successfully run query to delete prize " + prizeId);
     }
 
 	public static void searchPrize(Connection dbConn, String[] command) throws SQLException {
 		String prizeName = command[2];
 		ResultSet answer = null;
 
-        String query = "SELECT * FROM " + PRIZE_TABLE_NAME + """
-                WHERE CONTAINS(name, """ +
-                "'" + prizeName.replaceAll("'", "''") + "')";
+        String query = "SELECT * FROM " + PRIZE_TABLE_NAME + " " + """
+                WHERE regexp_like(name, """ +
+                "'.*" + prizeName.replaceAll("'", "''") + ".*', 'i') ORDER BY prizeID";
         Statement stmt = dbConn.createStatement();
         answer = stmt.executeQuery(query);
 
@@ -109,10 +152,10 @@ public class Arcade {
 			// Get the data about the query result to learn
 			// the attribute names and use them as column headers
 			ResultSetMetaData answermetadata = answer.getMetaData();
-			System.out.println(String.format("%-20s", answermetadata.getColumnName(1)) + " | "
-					+ String.format("%-20s", answermetadata.getColumnName(2)) + " | "
-					+ String.format("%-10s", answermetadata.getColumnName(3)));
-			for (int i = 1; i <= 50; i++) {
+			System.out.println(String.format("%-10s", answermetadata.getColumnName(1)) + " | "
+					+ String.format("%-35s", answermetadata.getColumnName(2)) + " | "
+					+ String.format("%-15s", answermetadata.getColumnName(3)));
+			for (int i = 1; i <= 60; i++) {
 				System.out.print("-");
 			}
 			System.out.println();
@@ -121,11 +164,11 @@ public class Arcade {
             // tuples and print their attribute values
             while (answer.next()) {
                 System.out.println(
-                        String.format("%-20s", answer.getString("prizeID"))
+                        String.format("%-10s", answer.getString("prizeID"))
                                 + " | "
-                                + String.format("%-20s", answer.getString("name"))
+                                + String.format("%-35s", answer.getString("name"))
                                 + " | "
-                                + String.format("%-10s", answer.getString("amount")));
+                                + String.format("%-15s", answer.getString("baseprice")));
             }
         } else {
             System.out.println("Unable to find a prize with the name " + prizeName);
@@ -877,7 +920,7 @@ public class Arcade {
 	public static void processQuery(String[] command, Connection dbConn, Scanner scanner) throws SQLException {
 		if (command[0].equals("ADD")) {
 			if (command[1].equalsIgnoreCase("PRIZE")) {
-                String[] prizeInfo = gatherPrizeInfo(dbConn);
+                String[] prizeInfo = gatherPrizeInfo(dbConn, scanner);
                 addPrize(dbConn, prizeInfo);
 			} else if (command[1].equalsIgnoreCase("GAME")) {
 				String[] userInput = gatherGameInfo(dbConn, scanner);
@@ -909,7 +952,7 @@ public class Arcade {
             }
         } else if (command[0].equals("UPDATE")) {
             if (command[1].equalsIgnoreCase("PRIZE")) {
-                searchPrize(dbConn, command);
+                // TODO: UPDATE PRIZE
             } else if (command[1].equalsIgnoreCase("GAME")) {
                 updateGame(dbConn, scanner);
             } else if (command[1].equalsIgnoreCase("MEMBER")) {
