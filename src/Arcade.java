@@ -893,7 +893,7 @@ public class Arcade {
 			if (command[1].equalsIgnoreCase("PRIZE")) {
 				delPrize(dbConn, command);
 			} else if (command[1].equalsIgnoreCase("GAME")) {
-				delGame(dbConn, command);
+				delGame(dbConn, scanner);
 			} else if (command[1].equalsIgnoreCase("MEMBER")) {
 				delMember(dbConn, scanner);
 			} else {
