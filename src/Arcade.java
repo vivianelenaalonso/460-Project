@@ -285,7 +285,7 @@ public class Arcade {
 			stmt.close();
 
 			System.out.println("Successfully redeemed prize " + prizeID +
-					"for member " + memberID);
+					" for member " + memberID);
 		}
 	}
 
@@ -737,7 +737,6 @@ public class Arcade {
 	|			 function in the proper order.
 	*-------------------------------------------------------------------*/
 	private static String[] gatherMemberInfo(Connection dbConn, Scanner scanner) throws SQLException {
-		// Scanner scanner = new Scanner(System.in);
 		String[] information = new String[7];
 		int newMemId = generateMemberId(dbConn);
 		if (newMemId > 0) { // generateMemberId made a new ID successfully
@@ -765,10 +764,9 @@ public class Arcade {
 		}
 		System.out.println("Enter your address: ");
 		information[3] = scanner.nextLine();
-		information[4] = "0";
+		information[4] = "300";
 		information[5] = "none";
 		information[6] = "0";
-		// scanner.close();
 		return information;
 	}
 
@@ -817,7 +815,6 @@ public class Arcade {
 	|  Returns:  None.
 	*-------------------------------------------------------------------*/
 	private static void updateMember(Connection dbConn, Scanner scanner) throws SQLException {
-		// Scanner scanner = new Scanner(System.in);
 		System.out.println("Enter your member ID: ");
 		String memberID = scanner.nextLine();
 		if (isMember(memberID, dbConn)) {
@@ -854,7 +851,6 @@ public class Arcade {
 			System.out.println("Not a valid member, check member ID and try again.");
 			return;
 		}
-		// scanner.close();
 	}
 
 	/*------------------------------------------------------------------*
@@ -897,32 +893,29 @@ public class Arcade {
 	|  Returns:  None.
 	*-------------------------------------------------------------------*/
 	private static void delMember(Connection dbConn, Scanner scanner) throws SQLException {
-		// Scanner scanner = new Scanner(System.in);
 		System.out.println("Enter your member ID: ");
 		String memberID = scanner.nextLine();
 		if (isMember(memberID, dbConn)) {
-			int tokens;
-			if ((tokens = getTokens(memberID, dbConn)) > 0) {
+			int tickets;
+			while ((tickets = getTickets(memberID, dbConn)) > 0) {
 				// Ask to exchange for prize/discount
-				System.out.println("You have " + tokens + "tokens, please"
-						+ " exchange them for a prize or discount before closing " + " your membership.");
-				queryThree(dbConn, memberID);
-			} else {
-				// Delete the member
-				deleteQuery(memberID, dbConn);
-				System.out.println("Member account deleted successfully.");
+				System.out.println("You have " + tickets + " tokens, please"
+						+ " exchange them for a prize or discount before closing your membership.");
+				queryThree(dbConn, memberID); // Lists available prizes for tickets
+				redeemPrize(dbConn, scanner); // Redeem prizes
 			}
+			// Delete the member
+			deleteQuery(memberID, dbConn);
+			System.out.println("Member account deleted successfully.");
 		} else {
 			System.out.println("Not a valid member, check member ID and try again.");
 		}
-		// scanner.close();
 	}
 
 	/*------------------------------------------------------------------*
-	|  Function getTokens()
+	|  Function getTickets()
 	|
-	|  Purpose: Updates a specific field requested by the user in 
-	|			the database.
+	|  Purpose: Gets the number of tickets a specific member has.
 	|
 	|  Parameters:
 	|	String member ID - The ID to search for and possibly locate.
@@ -930,15 +923,15 @@ public class Arcade {
 	|   String updateContent - The new information to update with. 
 	|	Connection dbConn - Connection string for SQL query execution.
 	|
-	|  Returns:  The number of tokens a member currently has.
+	|  Returns:  The number of tickets a member currently has.
 	*-------------------------------------------------------------------*/
-	private static int getTokens(String memberID, Connection dbConn) throws SQLException {
-		int tokenBalance = -1;
+	private static int getTickets(String memberID, Connection dbConn) throws SQLException {
+		int ticketBalance = -1;
 		Statement stmt = dbConn.createStatement();
-		String query = "SELECT tokenBalance FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
+		String query = "SELECT ticketBalance FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
 		ResultSet answer = stmt.executeQuery(query);
 		if (answer != null && answer.next()) {
-			tokenBalance = answer.getInt("tokenBalance");
+			ticketBalance = answer.getInt("ticketBalance");
 		}
 		if (answer != null) {
 			answer.close();
@@ -946,7 +939,7 @@ public class Arcade {
 		if (stmt != null) {
 			stmt.close();
 		}
-		return tokenBalance;
+		return ticketBalance;
 	}
 
 	/*------------------------------------------------------------------*
@@ -963,13 +956,27 @@ public class Arcade {
 	*-------------------------------------------------------------------*/
 	private static void deleteQuery(String memberID, Connection dbConn) throws SQLException {
 		Statement stmt = dbConn.createStatement();
-		String query = "DELETE FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
-		ResultSet answer = stmt.executeQuery(query);
-		if (answer != null) {
-			answer.close();
+		try {
+			dbConn.setAutoCommit(false);
+			String deleteFromBaseTrans = "DELETE FROM " + BASE_TRANSACTION_TABLE_NAME + " WHERE memberID = " + memberID;
+			stmt.executeUpdate(deleteFromBaseTrans);
+			String deleteFromCoupon = "DELETE FROM " + COUPON_TABLE_NAME + " WHERE memberID = " + memberID;
+			stmt.executeUpdate(deleteFromCoupon);
+			String deleteFromGameStats = "DELETE FROM " + GAME_STAT_NAME + " WHERE memberID = " + memberID;
+			stmt.executeUpdate(deleteFromGameStats);	
+			String query = "DELETE FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
+			stmt.executeUpdate(query);
+			dbConn.commit();
 		}
-		if (stmt != null) {
-			stmt.close();
+		catch (SQLException e) {
+			dbConn.rollback();
+			System.out.println("Deleting memberID info from foreign key tables failed.");
+		}
+		finally {
+			dbConn.setAutoCommit(true);
+			if (stmt != null) {
+				stmt.close();
+			}
 		}
 	}
 
