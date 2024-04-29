@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 import java.sql.*;
 
@@ -8,7 +11,7 @@ public class Arcade {
     private static final String COUPON_TABLE_NAME = "juliusramirez.Coupon";
     private static final String COUPON_DETAIL_TABLE_NAME = "juliusramirez.CouponDetail";
     private static final String COUPON_TRANSACTION_TABLE_NAME = "juliusramirez.CouponTransaction";
-    private static final String GAME_STAT_NAME = "juliusramirez.GameStat";
+    private static final String GAME_STAT_NAME = "juliusramirez.GameStats";
     private static final String GAME_TRANSACTION_NAME = "juliusramirez.GameTransaction";
     private static final String MEMBER_TABLE_NAME = "juliusramirez.Member";
     private static final String PRIZE_TABLE_NAME = "juliusramirez.Prize";
@@ -397,8 +400,69 @@ public class Arcade {
         }
     }
 
-    private static void queryOne() {
-
+    /*------------------------------------------------------------------*
+    | Function queryOne()
+    |
+    | Purpose: This function lists all games in the arcade and the names of
+    |		   the members who have the top ten current high scores.
+    | 
+    | Parameters:
+    |  Map<String, Integer> games List of available arcade games.
+    |  Connection dbConn    Connection to the database
+    | 
+    | Returns: None
+    *-------------------------------------------------------------------*/
+    private static void queryOne(Map<String, Integer> games, Connection dbConn) throws SQLException {
+    	System.out.println("--- Query One ---");
+    	System.out.println("-----------------");
+    	for (Map.Entry<String, Integer> entry : games.entrySet()) {
+    	    String name = entry.getKey();
+    	    int gameID = entry.getValue();
+    	    Statement stmt = dbConn.createStatement();
+    	    String query = "SELECT " + GAME_STAT_NAME + ".score, " + MEMBER_TABLE_NAME +
+                    ".name FROM " + GAME_STAT_NAME + " JOIN " + MEMBER_TABLE_NAME + 
+                    " ON " + GAME_STAT_NAME + ".memberID = " + MEMBER_TABLE_NAME + ".memberID" +
+                    " WHERE " + GAME_STAT_NAME + ".gameID = " + gameID +
+                    " ORDER BY " + GAME_STAT_NAME + ".score DESC";
+            ResultSet answer = stmt.executeQuery(query);
+            System.out.println("Top Ten Scores for " + name + "\n");
+            int loop = 1;
+            while (answer.next() && loop < 11) {
+            	int score = answer.getInt("score");
+            	String pName = answer.getString("name");
+            	System.out.println(loop + ". " + pName + " Score: " + score);
+            	loop++;
+            }
+            if (loop < 11) {
+            	for (int i = (11 - loop); i < 11; i++) {
+            		System.out.println(loop + ". NULL Score: NULL");
+            	}
+            }
+            System.out.println();
+    	}
+    }
+    
+    /*------------------------------------------------------------------*
+    | Function getArcadeGames()
+    |
+    | Purpose: This function gets all the current arcade games.
+    | 
+    | Parameters:
+    |  Connection dbConn    Connection to the database
+    | 
+    | Returns: A hashmap of all the arcade games and their IDs. 
+    *-------------------------------------------------------------------*/
+    private static Map<String, Integer> getArcadeGames(Connection dbConn) throws SQLException {
+    	Map<String, Integer> games = new HashMap<>();
+        Statement stmt = dbConn.createStatement();
+        String query = "SELECT name, gameID FROM " + ARCADE_GAME_TABLE_NAME;
+        ResultSet answer = stmt.executeQuery(query);
+        while (answer != null && answer.next()) {
+        	String name = answer.getString("name");
+            int gameID = answer.getInt("gameID");
+            games.put(name, gameID);
+        }
+    	return games;
     }
 
     /*------------------------------------------------------------------*
@@ -509,7 +573,8 @@ public class Arcade {
             // TODO: Implement function that stores a player's score from a game.
         } else if (command[0].equals("QUERY")) {
             if (command[1].equalsIgnoreCase("ONE")) {
-                // TODO query 1
+            	Map<String, Integer> games = getArcadeGames(dbConn);
+            	queryOne(games, dbConn);
             } else if (command[1].equalsIgnoreCase("TWO")) {
                 // TODO query 2
             } else if (command[1].equalsIgnoreCase("THREE")) {
@@ -550,9 +615,6 @@ public class Arcade {
         Scanner in = new Scanner(System.in);
         System.out.println("Welcome!\n");
 
-        System.out.println("This should be true " + isMember("37", dbconn));
-        delMember(dbconn);
-        System.out.println("This should be false " + isMember("37", dbconn));
         while (true) {
             System.out.println("\nPlease enter your query.");
             System.out.println("To exit, enter 'e' or 'E'.");
