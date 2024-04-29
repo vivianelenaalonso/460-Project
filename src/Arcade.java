@@ -21,7 +21,7 @@ public class Arcade {
 	private static final String TOKEN_TRANSACTION_TABLE_NAME = "juliusramirez.TokenTransaction";
 
 
-    public static void addPrize(Connection dbConn, String[] params) throws SQLException {
+    private static void addPrize(Connection dbConn, String[] params) throws SQLException {
         String prizeId = params[0];
         String prizeName = params[1];
         String ticketAmt = params[2];
@@ -43,7 +43,7 @@ public class Arcade {
     }
 
 
-    public static String[] gatherPrizeInfo(Connection dbConn, Scanner scanner) throws SQLException {
+    private static String[] gatherPrizeInfo(Connection dbConn, Scanner scanner) throws SQLException {
         String[] information = new String[3];
         int nextPrizeId;
 
@@ -86,7 +86,7 @@ public class Arcade {
     }
 
 
-	public static boolean isPrizeId(Connection dbConn, String prizeId) throws SQLException {
+	private static boolean isPrizeId(Connection dbConn, String prizeId) throws SQLException {
 		ResultSet answer = null;
 
         String query = "SELECT * FROM " + PRIZE_TABLE_NAME + " " + """
@@ -105,28 +105,20 @@ public class Arcade {
 	}
 
 
-	public static void delPrize(Connection dbConn, String[] command) throws SQLException {
-		String prizeId = command[2];
+	private static void delPrize(Connection dbConn, Scanner scanner) throws SQLException {
+		System.out.println("Enter prize ID to delete:");
+		String prizeId = scanner.nextLine();
 
-		// Check that prize id is given, and contains only numeric values.
-		if (command.length < 3) {
-			System.out.println("Missing prizeID of prize to delete." + 
-			" Please re-run command with the format: DELETE PRIZE <PRIZEID>." +
-			"\nYou can run SEARCH PRIZE <PRIZE NAME> to find prize IDs");
-			return;
-		}
-
-		if (!prizeId.matches("\\d+")) {
-			System.out.println("Invalid value for prizeID. PrizeID should" +
-			" only contain digits");
-			return;
-		}
-
-		// Check that the prize id given exists in the database.
-		if (!isPrizeId(dbConn, prizeId)) {
-			System.out.println("The prizeID you tried to delete does not " + 
-			"exist.\nYou can run SEARCH PRIZE <PRIZE NAME> to find prize IDs");
-			return;
+		// Check that prize id valid and exists in the db.
+		while (!prizeId.matches("\\d+") || !isPrizeId(dbConn, prizeId)) {
+			if (prizeId.toUpperCase().equals("C")) {
+				System.out.println("Returning to query menu...");
+				return;
+			}
+			System.out.println("Invalid value for prize ID. " +
+			"You can run SEARCH PRIZE <PRIZE NAME> to find prize IDs" +
+			"\nPlease try another prize ID, or enter C to return to cancel.");
+			prizeId = scanner.nextLine();
 		}
 
 		String query = "DELETE FROM " + PRIZE_TABLE_NAME + " " + """
@@ -135,10 +127,10 @@ public class Arcade {
         Statement stmt = dbConn.createStatement();
         stmt.executeUpdate(query);
         stmt.close();
-        System.out.println("Successfully run query to delete prize " + prizeId);
+        System.out.println("Successfully deleted prize " + prizeId);
     }
 
-	public static void searchPrize(Connection dbConn, String[] command) throws SQLException {
+	private static void searchPrize(Connection dbConn, String[] command) throws SQLException {
 		String prizeName = command[2];
 		ResultSet answer = null;
 
@@ -917,6 +909,96 @@ public class Arcade {
         System.out.println();
     }
 
+	private static void queryFour(Connection dbConn, String[] command, Scanner scanner) throws SQLException {
+		System.out.println("Enter a member ID to view recent transaction summaries for:");
+		String memberID = scanner.nextLine();
+
+		while (!memberID.matches("\\d+") || !isMember(memberID, dbConn)) {
+			if (memberID.toUpperCase().equals("C")) {
+				System.out.println("Returning to query menu...");
+				return;
+			}
+			System.out.println("Invalid member ID. Please enter another or press C to cancel.");
+			memberID = scanner.nextLine();
+		}
+
+		System.out.println("Summary of transactions for member " + memberID);
+		Statement stmt = dbConn.createStatement();
+		ResultSet answer = null;
+
+		// Token purchase stats for the past month.
+		String tokenPurchaseQuery = "SELECT sum(tokenamount) totaltok, sum(cost) totalcost from " + BASE_TRANSACTION_TABLE_NAME + ", " + TOKEN_TRANSACTION_TABLE_NAME +
+		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + TOKEN_TRANSACTION_TABLE_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		"AND transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month')";
+
+		//System.out.println(tokenPurchaseQuery);
+		answer = stmt.executeQuery(tokenPurchaseQuery);
+
+		if (answer.next()) {
+			System.out.println("\nYou have spent $" + answer.getFloat("totalcost")
+			+ " on " + answer.getInt("totaltok") + 
+			" tokens in the past month.");
+		} else {
+			System.out.println("You have bought no video game tokens in the past month.");
+		}
+		
+		// Gameplay stats for the past month.
+		String gameTokensQuery = "SELECT sum(ticketsearned) totalearned, sum(tokensspent) totalspent from " + BASE_TRANSACTION_TABLE_NAME + ", " + GAME_TRANSACTION_NAME +
+		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + GAME_TRANSACTION_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		"AND transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month')";
+
+		//System.out.println(gameTokensQuery);
+		answer = stmt.executeQuery(gameTokensQuery);
+
+		if (answer.next()) {
+			System.out.println("\nYou have spent " + answer.getInt("totalspent")
+			+ " token(s) on games in the past month, and earned "
+			+ answer.getInt("totalearned") + " tickets.");
+		} else {
+			System.out.println("You have played no games in the past month.");
+		}
+
+
+		// Prize redemption stats for the past month.
+		String prizesQuery = "SELECT count(prizename) numprizes, sum(ticketsspent) totaltix from " +
+		BASE_TRANSACTION_TABLE_NAME + ", " + PRIZE_TRANSACTION_TABLE_NAME +
+		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + PRIZE_TRANSACTION_TABLE_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		" AND transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month')"; 
+		//System.out.println(prizesQuery);
+		answer = stmt.executeQuery(prizesQuery);
+		
+		if (answer.next()) {
+			System.out.println("\nYou have redeemed " + answer.getInt("numprizes")
+			+ " prize(s) in the past month, spending a total of "
+			+ answer.getInt("totaltix") + " tickets.");
+		} else {
+			System.out.println("You have not redeemed any tickets in the past month.");
+		}
+
+		// Coupon redemption stats for the past month.
+		String couponQuery = "SELECT count(detailid) numredeems from " +
+		BASE_TRANSACTION_TABLE_NAME + ", " + COUPON_TRANSACTION_TABLE_NAME +
+		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + COUPON_TRANSACTION_TABLE_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		" AND transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month')"; 
+		//System.out.println(couponQuery);
+		answer = stmt.executeQuery(couponQuery);
+		
+		if (answer.next()) {
+			System.out.println("\nYou have redeemed " + answer.getInt("numredeems")
+			+ " coupon(s) in the past month.");
+		} else {
+			System.out.println("You have not redeemed any coupons in the past month.");
+		}
+
+		answer.close();
+		stmt.close();
+	}
+
+
 	public static void processQuery(String[] command, Connection dbConn, Scanner scanner) throws SQLException {
 		if (command[0].equals("ADD")) {
 			if (command[1].equalsIgnoreCase("PRIZE")) {
@@ -934,7 +1016,7 @@ public class Arcade {
             }
 		} else if (command[0].equals("DELETE")) {
 			if (command[1].equalsIgnoreCase("PRIZE")) {
-				delPrize(dbConn, command);
+				delPrize(dbConn, scanner);
 			} else if (command[1].equalsIgnoreCase("GAME")) {
 				delGame(dbConn, scanner);
 			} else if (command[1].equalsIgnoreCase("MEMBER")) {
@@ -972,7 +1054,7 @@ public class Arcade {
 			} else if (command[1].equalsIgnoreCase("THREE")) {
 				queryThree(dbConn, command);
 			} else if (command[1].equalsIgnoreCase("FOUR")) {
-				// TODO custom query
+				queryFour(dbConn, command, scanner);
 			}
 		}
 	}
