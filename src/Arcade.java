@@ -3,6 +3,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+
+import javax.naming.spi.DirStateFactory.Result;
+
 import java.sql.*;
 
 public class Arcade {
@@ -20,6 +23,223 @@ public class Arcade {
 	private static final String TOKEN_PURCHASE_TIER_TABLE_NAME = "juliusramirez.TokenPurchaseTier";
 	private static final String TOKEN_TRANSACTION_TABLE_NAME = "juliusramirez.TokenTransaction";
 
+
+	private static void addGameStat(Connection dbConn, Scanner scanner) throws SQLException {
+		System.out.println("Enter member ID");
+		String memberID = scanner.nextLine();
+		ResultSet answer = null;
+
+		while (!memberID.matches("\\d+") || !isMember(memberID, dbConn)) {
+			if (memberID.toUpperCase().equals("C")) {
+				System.out.println("Returning to query menu...");
+				return;
+			}
+			System.out.println("Invalid member ID. Please try again, or press c  to cancel.");
+			memberID = scanner.nextLine();
+		}
+
+		System.out.println("Enter game ID");
+		String gameID = scanner.nextLine();
+		while (!gameID.matches("\\d+") || !isGame(gameID, dbConn)) {
+			if (gameID.toUpperCase().equals("C")) {
+				System.out.println("Returning to query menu...");
+				return;
+			}
+			System.out.println("Invalid game ID. Please try again, or press c to cancel.");
+			gameID = scanner.nextLine();
+		}
+
+		int cur_balance = -1;
+		int req_balance = -1;
+		float tps = -1;
+		int score = (int) Math.round(Math.random() * 10000);
+
+		String getTokenBal = "SELECT tokenbalance FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(getTokenBal);
+		
+		if (answer.next()) {
+			cur_balance = answer.getInt("tokenbalance");
+		}
+		answer.close();
+		stmt.close();
+
+		String getGameInfo = "SELECT cost, ticketsperscore FROM " + ARCADE_GAME_TABLE_NAME + " WHERE gameID = '" + gameID + "'";
+		stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(getGameInfo);
+
+		if (answer.next()) {
+			req_balance = answer.getInt("cost");
+			tps = answer.getFloat("ticketsperscore");
+		}
+
+		if (req_balance == -1 || cur_balance == -1 || req_balance > cur_balance) {
+			System.out.println("Sorry, you do not have enough tokens to play this game.");
+			return;
+		} else {
+			System.out.println("You scored " + score + ". Congratulations!");
+
+			String updateMemQuery = "UPDATE " + MEMBER_TABLE_NAME + " SET tokenbalance = " + (cur_balance - req_balance) +
+			" WHERE memberID = '" + memberID + "'";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(updateMemQuery);
+			answer.close();
+			stmt.close();
+
+			String transID = getNewTransactionID(dbConn);
+			String statID = getNewStatID(dbConn);
+
+			String insertBTQuery = "INSERT INTO " + BASE_TRANSACTION_TABLE_NAME + 
+			"(transactionid, memberid, transactiondate, type) VALUES " +
+			"('" + transID + "', '" + memberID +"', sysdate, 'game')";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(insertBTQuery);
+			answer.close();
+			stmt.close();
+
+			String insertPTQuery = "INSERT INTO " + GAME_TRANSACTION_NAME + 
+			"(transactionid, tokensspent, ticketsearned) VALUES " +
+			"('" + transID + "', " + req_balance +", " + Math.round(score * tps) + ")";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(insertPTQuery);
+			answer.close();
+			stmt.close();
+
+			String delPrizeQuery = "INSERT INTO " + GAME_STAT_NAME + " " + """
+				(statID, memberID, gameID, score) VALUES """ + 
+				"('" + statID + "', '" + memberID + "', '" + gameID + "', " + score + ")";
+
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(delPrizeQuery);
+			answer.close();
+			stmt.close();
+
+			System.out.println("You have been awarded " + Math.round(score * tps) + " tickets!");
+		}
+	}
+
+	private static void redeemPrize(Connection dbConn, Scanner scanner) throws SQLException {
+		System.out.println("Enter member ID");
+		String memberID = scanner.nextLine();
+		ResultSet answer = null;
+
+		while (!memberID.matches("\\d+") || !isMember(memberID, dbConn)) {
+			if (memberID.toUpperCase().equals("C")) {
+				System.out.println("Returning to query menu...");
+				return;
+			}
+			System.out.println("Invalid member ID. Please try again, or press c  to cancel.");
+			memberID = scanner.nextLine();
+		}
+
+		System.out.println("Enter prize ID");
+		String prizeID = scanner.nextLine();
+		while (!prizeID.matches("\\d+") || !isPrizeId(dbConn, prizeID)) {
+			if (prizeID.toUpperCase().equals("C")) {
+				System.out.println("Returning to query menu...");
+				return;
+			}
+			System.out.println("Invalid prize ID. Please try again, or press c  to cancel.");
+			prizeID = scanner.nextLine();
+		}
+
+		int cur_balance = -1;
+		int req_balance = -1;
+		String prize_name = null;
+
+		String getTicketBalQuery = "SELECT ticketbalance FROM " + MEMBER_TABLE_NAME + " WHERE memberID = " + memberID;
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(getTicketBalQuery);
+		
+		if (answer.next()) {
+			cur_balance = answer.getInt("ticketbalance");
+		}
+		answer.close();
+		stmt.close();
+
+		String getPrizeCostQuery = "SELECT name, baseprice FROM " + PRIZE_TABLE_NAME + " WHERE prizeID = '" + prizeID + "'";
+		stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(getPrizeCostQuery);
+
+		if (answer.next()) {
+			req_balance = answer.getInt("baseprice");
+			prize_name = answer.getString("name");
+		}
+
+		if (req_balance == -1 || cur_balance == -1 || req_balance > cur_balance) {
+			System.out.println("Sorry, you do not have enough tickets to claim this prize.");
+			return;
+		} else {
+			String updateMemQuery = "UPDATE " + MEMBER_TABLE_NAME + " SET ticketbalance = " + (cur_balance - req_balance) +
+			" WHERE memberID = '" + memberID + "'";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(updateMemQuery);
+			answer.close();
+			stmt.close();
+
+			String transID = getNewTransactionID(dbConn);
+
+			String insertBTQuery = "INSERT INTO " + BASE_TRANSACTION_TABLE_NAME + 
+			"(transactionid, memberid, transactiondate, type) VALUES " +
+			"('" + transID + "', '" + memberID +"', sysdate, 'prize')";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(insertBTQuery);
+			answer.close();
+			stmt.close();
+
+			String insertPTQuery = "INSERT INTO " + PRIZE_TRANSACTION_TABLE_NAME + 
+			"(transactionid, prizename, ticketsspent) VALUES " +
+			"('" + transID + "', '" + prize_name +"', " + req_balance + ")";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(insertPTQuery);
+			answer.close();
+			stmt.close();
+
+			String delPrizeQuery = "DELETE FROM " + PRIZE_TABLE_NAME + " " + """
+				WHERE prizeID = """ + "'" + prizeID.replaceAll("'", "''") + "'";
+			stmt = dbConn.createStatement();
+			answer = stmt.executeQuery(delPrizeQuery);
+			answer.close();
+			stmt.close();
+
+			System.out.println("Successfully redeemed prize " + prizeID + "for member " + memberID);
+		}
+	}
+
+
+	private static String getNewTransactionID(Connection dbConn) throws SQLException {
+		int nextTransactionId;
+
+        ResultSet answer = null;
+        String findIdsQuery = "SELECT transactionID FROM " + BASE_TRANSACTION_TABLE_NAME + " ORDER BY transactionID DESC";
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(findIdsQuery);
+        if (answer != null && answer.next()) {
+            int lastTid = answer.getInt(1);
+            answer.close();
+            nextTransactionId = lastTid + 1;
+        } else {
+            nextTransactionId = 1;
+        }
+		return String.valueOf(nextTransactionId);
+	}
+
+	private static String getNewStatID(Connection dbConn) throws SQLException {
+		int nextStatId;
+
+        ResultSet answer = null;
+        String findIdsQuery = "SELECT statID FROM " + GAME_STAT_NAME + " ORDER BY statID DESC";
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(findIdsQuery);
+        if (answer != null && answer.next()) {
+            int lastSid = answer.getInt(1);
+            answer.close();
+            nextStatId = lastSid + 1;
+        } else {
+            nextStatId = 1;
+        }
+		return String.valueOf(nextStatId);
+	}
 
     private static void addPrize(Connection dbConn, String[] params) throws SQLException {
         String prizeId = params[0];
@@ -52,9 +272,9 @@ public class Arcade {
         Statement stmt = dbConn.createStatement();
         answer = stmt.executeQuery(findIdsQuery);
         if (answer != null && answer.next()) {
-            int lastMemId = answer.getInt(1);
+            int lastPid = answer.getInt(1);
             answer.close();
-            nextPrizeId = lastMemId + 1;
+            nextPrizeId = lastPid + 1;
         } else {
             nextPrizeId = 1;
         }
@@ -131,6 +351,10 @@ public class Arcade {
     }
 
 	private static void searchPrize(Connection dbConn, String[] command) throws SQLException {
+		if (command.length < 3) {
+			System.out.println("Invalid command format. Should be 'SEARCH PRIZE <SEARCH_TERM>'");
+			return;
+		}
 		String prizeName = command[2];
 		ResultSet answer = null;
 
@@ -166,6 +390,54 @@ public class Arcade {
             System.out.println("Unable to find a prize with the name " + prizeName);
         }
     }
+
+	private static void updatePrize(Connection dbConn, Scanner scanner) throws SQLException {
+		System.out.println("Enter the ID of the prize you want to update: ");
+		String prizeID = scanner.nextLine();
+		ResultSet answer = null;
+		
+
+		if (isPrizeId(dbConn, prizeID)) {
+			System.out.println(
+					"\nWhat would you like to update? " + "\n a) Name" + "\n b) Cost (in tickets)\n");
+			String request = scanner.nextLine();
+
+			if (request.equalsIgnoreCase("A")) {
+				System.out.println("Enter name update: ");
+				String newName = scanner.nextLine();
+				if (!newName.matches("[a-zA-Z ]+")) {
+					System.out.println("Name should contain only letters.");
+					return;
+				}
+				String query = "UPDATE " + PRIZE_TABLE_NAME + " SET name = '" + newName + "' WHERE prizeID = '"
+				+ prizeID + "'";
+				Statement stmt = dbConn.createStatement();
+				answer = stmt.executeQuery(query);
+				answer.close();
+				stmt.close();
+			} else if (request.equalsIgnoreCase("B")) {
+				System.out.println("Enter cost update: ");
+				String newCost = scanner.nextLine();
+				if (!newCost.matches("\\d")) {
+					System.out.println("Cost should contain only digits.");
+					return;
+				}
+				String query = "UPDATE " + PRIZE_TABLE_NAME + " SET name = '" + newCost + "' WHERE prizeID = '"
+				+ prizeID + "'";
+				Statement stmt = dbConn.createStatement();
+				answer = stmt.executeQuery(query);
+				answer.close();
+				stmt.close();
+			} else {
+				System.out.println("Invalid entry, please choose from" + "options a to c listed above.");
+			}
+
+			System.out.println("\n Prize" + prizeID + " was successfully updated.");
+		} else {
+			System.out.println("Not a valid prize ID, please check and try again.");
+			return;
+		}
+	}
 
 	/*------------------------------------------------------------------*
 	|  Function addMember()
@@ -483,6 +755,7 @@ public class Arcade {
 			stmt.close();
 		}
 	}
+
 
 	/*------------------------------------------------------------------*
 	| Function queryOne()
@@ -926,7 +1199,7 @@ public class Arcade {
 		Statement stmt = dbConn.createStatement();
 		ResultSet answer = null;
 
-		// Token purchase stats for the past month.
+		// Token purchase stats for last month.
 		String tokenPurchaseQuery = "SELECT sum(tokenamount) totaltok, sum(cost) totalcost from " + BASE_TRANSACTION_TABLE_NAME + ", " + TOKEN_TRANSACTION_TABLE_NAME +
 		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + TOKEN_TRANSACTION_TABLE_NAME + ".transactionid " +
 		"AND memberid = " + memberID + " " +
@@ -936,14 +1209,14 @@ public class Arcade {
 		answer = stmt.executeQuery(tokenPurchaseQuery);
 
 		if (answer.next()) {
-			System.out.println("\nYou have spent $" + answer.getFloat("totalcost")
+			System.out.println("\nYou spent $" + answer.getFloat("totalcost")
 			+ " on " + answer.getInt("totaltok") + 
-			" tokens in the past month.");
+			" tokens last month.");
 		} else {
-			System.out.println("You have bought no video game tokens in the past month.");
+			System.out.println("You bought no video game tokens last month.");
 		}
 		
-		// Gameplay stats for the past month.
+		// Gameplay stats for last month.
 		String gameTokensQuery = "SELECT sum(ticketsearned) totalearned, sum(tokensspent) totalspent from " + BASE_TRANSACTION_TABLE_NAME + ", " + GAME_TRANSACTION_NAME +
 		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + GAME_TRANSACTION_NAME + ".transactionid " +
 		"AND memberid = " + memberID + " " +
@@ -953,15 +1226,15 @@ public class Arcade {
 		answer = stmt.executeQuery(gameTokensQuery);
 
 		if (answer.next()) {
-			System.out.println("\nYou have spent " + answer.getInt("totalspent")
-			+ " token(s) on games in the past month, and earned "
+			System.out.println("\nYou spent " + answer.getInt("totalspent")
+			+ " token(s) on games last month, and earned "
 			+ answer.getInt("totalearned") + " tickets.");
 		} else {
-			System.out.println("You have played no games in the past month.");
+			System.out.println("You played no games last month.");
 		}
 
 
-		// Prize redemption stats for the past month.
+		// Prize redemption stats for the last month.
 		String prizesQuery = "SELECT count(prizename) numprizes, sum(ticketsspent) totaltix from " +
 		BASE_TRANSACTION_TABLE_NAME + ", " + PRIZE_TRANSACTION_TABLE_NAME +
 		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + PRIZE_TRANSACTION_TABLE_NAME + ".transactionid " +
@@ -971,14 +1244,14 @@ public class Arcade {
 		answer = stmt.executeQuery(prizesQuery);
 		
 		if (answer.next()) {
-			System.out.println("\nYou have redeemed " + answer.getInt("numprizes")
-			+ " prize(s) in the past month, spending a total of "
+			System.out.println("\nYou redeemed " + answer.getInt("numprizes")
+			+ " prize(s) last month, spending a total of "
 			+ answer.getInt("totaltix") + " tickets.");
 		} else {
-			System.out.println("You have not redeemed any tickets in the past month.");
+			System.out.println("You did not redeem any tickets last month.");
 		}
 
-		// Coupon redemption stats for the past month.
+		// Coupon redemption stats for the last month.
 		String couponQuery = "SELECT count(detailid) numredeems from " +
 		BASE_TRANSACTION_TABLE_NAME + ", " + COUPON_TRANSACTION_TABLE_NAME +
 		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + COUPON_TRANSACTION_TABLE_NAME + ".transactionid " +
@@ -988,10 +1261,10 @@ public class Arcade {
 		answer = stmt.executeQuery(couponQuery);
 		
 		if (answer.next()) {
-			System.out.println("\nYou have redeemed " + answer.getInt("numredeems")
-			+ " coupon(s) in the past month.");
+			System.out.println("\nYou redeemed " + answer.getInt("numredeems")
+			+ " coupon(s) last month.");
 		} else {
-			System.out.println("You have not redeemed any coupons in the past month.");
+			System.out.println("You did not redeem any coupons last month.");
 		}
 
 		answer.close();
@@ -1030,11 +1303,11 @@ public class Arcade {
                 searchPrize(dbConn, command);
             } else {
                 System.out.println("Invalid command. You can search prize, member and game names with the command:");
-                System.out.println("SEARCH <PRIZE | GAME | MEMBER>");
+                System.out.println("SEARCH <PRIZE>");
             }
         } else if (command[0].equals("UPDATE")) {
             if (command[1].equalsIgnoreCase("PRIZE")) {
-                // TODO: UPDATE PRIZE
+                updatePrize(dbConn, scanner);
             } else if (command[1].equalsIgnoreCase("GAME")) {
                 updateGame(dbConn, scanner);
             } else if (command[1].equalsIgnoreCase("MEMBER")) {
@@ -1044,7 +1317,9 @@ public class Arcade {
                 System.out.println("UPDATE <PRIZE | GAME | MEMBER>");
             }
         } else if (command[0].equals("PLAY")) {
-			// TODO: Implement function that stores a player's score from a game.
+			addGameStat(dbConn, scanner);
+		} else if (command[0].equals("REDEEM")) {
+			redeemPrize(dbConn, scanner);
 		} else if (command[0].equals("QUERY")) {
 			if (command[1].equalsIgnoreCase("ONE")) {
 				Map<String, Integer> games = getArcadeGames(dbConn);
