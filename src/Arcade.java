@@ -764,7 +764,7 @@ public class Arcade {
 		}
 		System.out.println("Enter your address: ");
 		information[3] = scanner.nextLine();
-		information[4] = "300";
+		information[4] = "0";
 		information[5] = "none";
 		information[6] = "0";
 		return information;
