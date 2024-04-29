@@ -1131,270 +1131,272 @@ public class Arcade {
 	|
 	|  Returns:  Boolean reflecting if an ID is in the arcade game table.
 	*-------------------------------------------------------------------*/
-	private static boolean isGame(String gameID, Connection dbConn) throws SQLException {
-		ResultSet answer = null;
-		String query = "SELECT COUNT(*) FROM " + ARCADE_GAME_TABLE_NAME + " WHERE gameID = " + gameID;
-		;
-		Statement stmt = dbConn.createStatement();
-		answer = stmt.executeQuery(query);
-		if (answer != null) {
-			if (answer.next()) {
-				int count = answer.getInt(1);
-				return (count > 0);
-			}
-		}
-		if (answer != null) {
-			answer.close();
-		}
-		if (stmt != null) {
-			stmt.close();
-		}
-		return false;
-	}
+    private static boolean isGame(String gameID, Connection dbConn) throws SQLException {
+        ResultSet answer = null;
+        String query = "SELECT COUNT(*) FROM " + ARCADE_GAME_TABLE_NAME + " WHERE gameID = " + gameID;
+        ;
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(query);
+        if (answer != null) {
+            if (answer.next()) {
+                int count = answer.getInt(1);
+                return (count > 0);
+            }
+        }
+        if (answer != null) {
+            answer.close();
+        }
+        if (stmt != null) {
+            stmt.close();
+        }
+        return false;
+    }
 
-	/*------------------------------------------------------------------*
-	|  Function updateGame()
-	|
-	|  Purpose: Updates a game's name, cost, tickets per score.
-	|           in the database.
-	|
-	|  Parameters:
-	|	String game ID - The ID to update the contents of.
-	|	Connection dbConn - Connection string for SQL query execution.
-	|
-	|  Returns:  None.
-	*-------------------------------------------------------------------*/
-	private static void updateGame(Connection dbConn, Scanner scanner) throws SQLException {
-		// Scanner scanner = new Scanner(System.in);
-		System.out.println("Enter your game ID: ");
-		String gameID = scanner.nextLine();
+    /*------------------------------------------------------------------*
+    |  Function updateGame()
+    |
+    |  Purpose: Updates a game's name, cost, tickets per score.
+    |           in the database.
+    |
+    |  Parameters:
+    |	String game ID - The ID to update the contents of.
+    |	Connection dbConn - Connection string for SQL query execution.
+    |
+    |  Returns:  None.
+    *-------------------------------------------------------------------*/
+    private static void updateGame(Connection dbConn, Scanner scanner) throws SQLException {
+        // Scanner scanner = new Scanner(System.in);
+        System.out.println("Enter your game ID: ");
+        String gameID = scanner.nextLine();
 
-		if (isGame(gameID, dbConn)) {
-			System.out.println("\nWhat would you like to update? " + "\n a) Name" + "\n b) Ticket Cost"
-					+ "\n c) Tickets Per Score\n");
-			String request = scanner.nextLine();
+        if (isGame(gameID, dbConn)) {
+            System.out.println("\nWhat would you like to update? " + "\n a) Name" + "\n b) Ticket Cost" + "\n c) Tickets Per Score\n");
+            String request = scanner.nextLine();
 
-			if (request.equalsIgnoreCase("A")) {
-				System.out.println("Enter new name: ");
-				String newName = scanner.nextLine();
+            if (request.equalsIgnoreCase("A")) {
+                System.out.println("Enter new name: ");
+                String newName = scanner.nextLine();
 
-				if (!newName.matches("[a-zA-Z ]+")) {
-					System.out.println("Name should contain only letters.");
-					return;
-				}
+                if (!newName.matches("[a-zA-Z ]+")) {
+                    System.out.println("Name should contain only letters.");
+                    return;
+                }
 
-				updateGameField(gameID, "name", newName, dbConn);
+                updateGameField(gameID, "name", newName, dbConn);
 
-			} else if (request.equalsIgnoreCase("B")) {
+            } else if (request.equalsIgnoreCase("B")) {
 
-				System.out.println("Enter ticket cost: ");
-				String newTicketCost = scanner.nextLine();
-				if (!newTicketCost.matches("[0-9]+")) {
-					System.out.println("Ticket cost must be a number.");
-					return;
-				}
-				updateGameField(gameID, "cost", newTicketCost, dbConn);
-			} else if (request.equalsIgnoreCase("C")) {
-				System.out.println("Enter tickets per score: ");
-				String newTicketsPerScore = scanner.nextLine();
-				updateGameField(gameID, "ticketsperscore", newTicketsPerScore, dbConn);
-			} else {
-				System.out.println("Invalid entry, please choose from" + "options a to c listed above.");
-			}
+                System.out.println("Enter ticket cost: ");
+                String newTicketCost = scanner.nextLine();
+                if (!newTicketCost.matches("[0-9]+")) {
+                    System.out.println("Ticket cost must be a number.");
+                    return;
+                }
+                updateGameField(gameID, "cost", newTicketCost, dbConn);
+            }
+            else if (request.equalsIgnoreCase("C")) {
+                System.out.println("Enter tickets per score: ");
+                String newTicketsPerScore = scanner.nextLine();
+                updateGameField(gameID, "ticketsperscore", newTicketsPerScore, dbConn);
+            }
+            else {
+                System.out.println("Invalid entry, please choose from" + "options a to c listed above.");
+            }
 
-			System.out.println("\n Game successfully updated.");
-		} else {
-			System.out.println("Not a valid game, check game ID and try again.");
-			return;
-		}
-		// scanner.close();
-	}
+            System.out.println("\n Game successfully updated.");
+        }
+        else {
+            System.out.println("Not a valid game, check game ID and try again.");
+            return;
+        }
+        //scanner.close();
+    }
 
-	/*------------------------------------------------------------------*
-	|  Function updateGameField()
-	|
-	|  Purpose: Updates a specific field requested by the user in
-	|			the database.
-	|
-	|  Parameters:
-	|	String game ID - The ID to search for and possibly locate.
-	|	String field - The field to update in the DB
-	|   String updateContent - The new information to update with.
-	|	Connection dbConn - Connection string for SQL query execution.
-	|
-	|  Returns:  None.
-	*-------------------------------------------------------------------*/
-	private static void updateGameField(String gameID, String field, String updateContent, Connection dbConn)
-			throws SQLException {
-		ResultSet answer = null;
-		String query = "UPDATE " + ARCADE_GAME_TABLE_NAME + " SET " + field + " = '" + updateContent
-				+ "' WHERE gameID = '"
-				+ gameID + "'";
-		Statement stmt = dbConn.createStatement();
-		answer = stmt.executeQuery(query);
-		if (answer != null) {
-			answer.close();
-		}
-		if (stmt != null) {
-			stmt.close();
-		}
-	}
+    /*------------------------------------------------------------------*
+    |  Function updateGameField()
+    |
+    |  Purpose: Updates a specific field requested by the user in
+    |			the database.
+    |
+    |  Parameters:
+    |	String game ID - The ID to search for and possibly locate.
+    |	String field - The field to update in the DB
+    |   String updateContent - The new information to update with.
+    |	Connection dbConn - Connection string for SQL query execution.
+    |
+    |  Returns:  None.
+    *-------------------------------------------------------------------*/
+    private static void updateGameField(String gameID, String field, String updateContent, Connection dbConn) throws SQLException {
+        ResultSet answer = null;
+        String query = "UPDATE " + ARCADE_GAME_TABLE_NAME + " SET " + field + " = '" + updateContent + "' WHERE gameID = '"
+                + gameID + "'";
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(query);
+        if (answer != null) {
+            answer.close();
+        }
+        if (stmt != null) {
+            stmt.close();
+        }
+    }
 
-	/*------------------------------------------------------------------*
-	|  Function delGame()
-	|
-	|  Purpose: Deletes a game from the database.
-	|
-	|  Parameters:
-	|	Connection dbConn - Connection string for SQL query execution.
-	|
-	|  Returns:  None.
-	*-------------------------------------------------------------------*/
-	private static void delGame(Connection dbConn, Scanner scanner) throws SQLException {
-		System.out.println("Enter your game ID: ");
-		String gameID = scanner.nextLine();
-		if (isGame(gameID, dbConn)) {
-			String query = "DELETE FROM " + ARCADE_GAME_TABLE_NAME + " WHERE gameID = " + "'" + gameID + "'";
-			Statement stmt = dbConn.createStatement();
-			stmt.executeUpdate(query);
-			stmt.close();
+    /*------------------------------------------------------------------*
+    |  Function delGame()
+    |
+    |  Purpose: Deletes a game from the database.
+    |
+    |  Parameters:
+    |	Connection dbConn - Connection string for SQL query execution.
+    |
+    |  Returns:  None.
+    *-------------------------------------------------------------------*/
+    private static void delGame(Connection dbConn, Scanner scanner) throws SQLException {
+        System.out.println("Enter your game ID: ");
+        String gameID = scanner.nextLine();
+        if (isGame(gameID, dbConn)) {
+            String query = "DELETE FROM " + ARCADE_GAME_TABLE_NAME + " WHERE gameID = " + "'" + gameID + "'";
+            Statement stmt = dbConn.createStatement();
+            stmt.executeUpdate(query);
+            stmt.close();
 
-			String query2 = "DELETE FROM " + GAME_STAT_NAME + " WHERE gameID = " + "'" + gameID + "'";
-			Statement stmt2 = dbConn.createStatement();
-			stmt2.executeUpdate(query2);
-			stmt2.close();
+            String query2 = "DELETE FROM " + GAME_STAT_NAME + " WHERE gameID = " + "'" + gameID + "'";
+            Statement stmt2 = dbConn.createStatement();
+            stmt2.executeUpdate(query2);
+            stmt2.close();
 
-		} else {
-			System.out.println("Not a valid game, check game ID and try again.");
-		}
-		System.out.println("Deletion successful.");
-	}
+        }
+        else {
+            System.out.println("Not a valid game, check game ID and try again.");
+        }
+        System.out.println("Deletion successful.");
+    }
 
-	/*------------------------------------------------------------------*
-	|  Function generateGameID()
-	|
-	|  Purpose: Generates a new member ID for inserting a new member into
-	|			the member table.
-	|
-	|  Parameters:
-	|	Connection dbConn - Connection string for SQL query execution.
-	|
-	|  Returns:  Integer memberId that is one more than the last in the
-	|			 memberId column. Does not reuse memberIds for members
-	|		     who have deleted their accounts and had subsequent members
-	| 			 added since.
-	*-------------------------------------------------------------------*/
-	private static int generateGameID(Connection dbConn) throws SQLException {
-		ResultSet answer = null;
-		String query = "SELECT gameID FROM " + ARCADE_GAME_TABLE_NAME + " ORDER BY gameID DESC";
-		Statement stmt = dbConn.createStatement();
-		answer = stmt.executeQuery(query);
-		if (answer != null && answer.next()) {
-			int lastGameId = answer.getInt(1);
-			answer.close();
-			return (lastGameId + 1);
-		}
-		if (stmt != null) {
-			stmt.close();
-		}
-		return -1;
-	}
+    /*------------------------------------------------------------------*
+    |  Function generateGameID()
+    |
+    |  Purpose: Generates a new member ID for inserting a new member into
+    |			the member table.
+    |
+    |  Parameters:
+    |	Connection dbConn - Connection string for SQL query execution.
+    |
+    |  Returns:  Integer memberId that is one more than the last in the
+    |			 memberId column. Does not reuse memberIds for members
+    |		     who have deleted their accounts and had subsequent members
+    | 			 added since.
+    *-------------------------------------------------------------------*/
+    private static int generateGameID(Connection dbConn) throws SQLException {
+        ResultSet answer = null;
+        String query = "SELECT gameID FROM " + ARCADE_GAME_TABLE_NAME + " ORDER BY gameID DESC";
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(query);
+        if (answer != null && answer.next()) {
+            int lastGameId = answer.getInt(1);
+            answer.close();
+            return (lastGameId + 1);
+        }
+        if (stmt != null) {
+            stmt.close();
+        }
+        return -1;
+    }
 
-	/*------------------------------------------------------------------*
-	|  Function addGame()
-	|
-	|  Purpose: Adds a new game into the arcade game relation in the DB.
-	|
-	|  Pre-Condition: The new game's information has been successfully
-	|		 		  gathered and a new game ID has been constructed
-	|				  for insertion.
-	|
-	|  Parameters:
-	|	String[] info - Information for the new game in the same game
-	|				    relation order gameID, cost, name, ticketsperscore
-	|	Connection dbConn - Connection string for SQL query execution.
-	|
-	|  Returns:  None.
-	*-------------------------------------------------------------------*/
-	private static void addGame(String[] info, Connection dbConn) throws SQLException {
-		String query = "INSERT INTO " + ARCADE_GAME_TABLE_NAME
-				+ " (gameID, cost, name, ticketsperscore) "
-				+ "VALUES (?, ?, ?, ?)";
-		PreparedStatement pstmt = dbConn.prepareStatement(query);
-		pstmt.setString(1, info[0]);
-		pstmt.setInt(2, Integer.parseInt(info[1]));
-		pstmt.setString(3, info[2]);
-		pstmt.setFloat(4, Float.parseFloat(info[3]));
-		int rowsInserted = pstmt.executeUpdate();
-		if (rowsInserted == 1) {
-			System.out.println("Game successfully created. Your game ID is " + info[0]);
-			pstmt.close();
-		}
-	}
 
-	/*------------------------------------------------------------------*
-	|  Function gatherGameInfo()
-	|
-	|  Purpose: Gathers required information for a new game to be
-	|			created in the arcade game relation. Enforces some table field
-	|			restriction to ensure proper DB insertion.
-	|
-	|  Parameters:
-	|	Connection dbConn - Connection string for SQL query execution.
-	|
-	|  Returns:  String array full of member information for addGame()
-	|			 function in the proper order.
-	*-------------------------------------------------------------------*/
-	private static String[] gatherGameInfo(Connection dbConn, Scanner scanner) throws SQLException {
-		String[] information = new String[4];
-		int newGameId = generateGameID(dbConn);
-		if (newGameId > 0) { // generateGameID made a new ID successfully
-			information[0] = Integer.toString(newGameId);
-		} else {
-			System.out.println("Generating a new game ID in generateGameID() failed.");
-		}
+    /*------------------------------------------------------------------*
+    |  Function addGame()
+    |
+    |  Purpose: Adds a new game into the arcade game relation in the DB.
+    |
+    |  Pre-Condition: The new game's information has been successfully
+    |		 		  gathered and a new game ID has been constructed
+    |				  for insertion.
+    |
+    |  Parameters:
+    |	String[] info - Information for the new game in the same game
+    |				    relation order gameID, cost, name, ticketsperscore
+    |	Connection dbConn - Connection string for SQL query execution.
+    |
+    |  Returns:  None.
+    *-------------------------------------------------------------------*/
+    private static void addGame(String[] info, Connection dbConn) throws SQLException {
+        String query = "INSERT INTO " + ARCADE_GAME_TABLE_NAME
+                + " (gameID, cost, name, ticketsperscore) "
+                + "VALUES (?, ?, ?, ?)";
+        PreparedStatement pstmt = dbConn.prepareStatement(query);
+        pstmt.setString(1, info[0]);
+        pstmt.setInt(2, Integer.parseInt(info[1]));
+        pstmt.setString(3, info[2]);
+        pstmt.setFloat(4, Float.parseFloat(info[3]));
+        int rowsInserted = pstmt.executeUpdate();
+        if (rowsInserted == 1) {
+            System.out.println("Game successfully created. Your game ID is " + info[0]);
+            pstmt.close();
+        }
+    }
 
-		System.out.println("Enter game cost: ");
-		while (true) {
-			information[1] = scanner.nextLine();
-			if (information[1].matches("[0-9]+")) {
-				break;
-			} else {
-				System.out.println("Name should contain only numberss. Please enter again: ");
-			}
-		}
-		System.out.println("Enter game name: ");
-		information[2] = scanner.nextLine();
+    /*------------------------------------------------------------------*
+    |  Function gatherGameInfo()
+    |
+    |  Purpose: Gathers required information for a new game to be
+    |			created in the arcade game relation. Enforces some table field
+    |			restriction to ensure proper DB insertion.
+    |
+    |  Parameters:
+    |	Connection dbConn - Connection string for SQL query execution.
+    |
+    |  Returns:  String array full of member information for addGame()
+    |			 function in the proper order.
+    *-------------------------------------------------------------------*/
+    private static String[] gatherGameInfo(Connection dbConn, Scanner scanner) throws SQLException {
+        String[] information = new String[4];
+        int newGameId = generateGameID(dbConn);
+        if (newGameId > 0) { // generateGameID made a new ID successfully
+            information[0] = Integer.toString(newGameId);
+        } else {
+            System.out.println("Generating a new game ID in generateGameID() failed.");
+        }
 
-		System.out.println("Enter game tickets per score: ");
-		information[3] = scanner.nextLine();
-		return information;
-	}
+        System.out.println("Enter game cost: ");
+        while (true) {
+            information[1] = scanner.nextLine();
+            if (information[1].matches("[0-9]+")) {
+                break;
+            } else {
+                System.out.println("Name should contain only numberss. Please enter again: ");
+            }
+        }
+        System.out.println("Enter game name: ");
+        information[2] = scanner.nextLine();
 
-	/*------------------------------------------------------------------*
-	| Function queryTwo()
-	|
-	| Purpose: Helper function to print out the members' names and tiers for those
-	|           who have spent over $100 in the last most.
-	|
-	| Precondition: None
-	|
-	| Post-condition: No crash.
-	|
-	| Returns: None
-	*-------------------------------------------------------------------*/
-	private static void queryTwo(Connection dbConn) throws SQLException {
-		Statement stmt = dbConn.createStatement();
-		String query = "SELECT d.name, c.memberID, c.total, d.tier FROM (SELECT a.memberID, SUM(b.cost) total FROM (SELECT * from juliusramirez.BaseTransaction WHERE type='token') a JOIN (SELECT * FROM juliusramirez.TokenTransaction) b ON a.transactionID=b.transactionID WHERE transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month') GROUP BY a.memberID) c JOIN juliusramirez.Member d ON c.memberID=d.memberID WHERE TOTAL >= 100";
-		ResultSet answer = stmt.executeQuery(query);
-		System.out.println("\nMembers who've spent over $100 in the last month.: ");
-		int i = 0;
-		while (answer != null && answer.next()) {
-			i++;
-			System.out.println("Name: " + answer.getString("name") + " Tier: " + answer.getString("tier"));
-		}
-		System.out.println();
-	}
+        System.out.println("Enter game tickets per score: ");
+        information[3] = scanner.nextLine();
+        return information;
+    }
+
+    /*------------------------------------------------------------------*
+    | Function queryTwo()
+    |
+    | Purpose: Helper function to print out the members' names and tiers for those
+    |           who have spent over $100 in the last most.
+    |
+    | Precondition: None
+    |
+    | Post-condition: No crash.
+    |
+    | Returns: None
+    *-------------------------------------------------------------------*/
+    private static void queryTwo(Connection dbConn) throws SQLException {
+        Statement stmt = dbConn.createStatement();
+        String query = "SELECT d.name, c.memberID, c.total, d.tier FROM (SELECT a.memberID, SUM(b.cost) total FROM (SELECT * from juliusramirez.BaseTransaction WHERE type='token') a JOIN (SELECT * FROM juliusramirez.TokenTransaction) b ON a.transactionID=b.transactionID WHERE transactiondate >= sysdate - 30 AND transactiondate < sysdate GROUP BY a.memberID) c JOIN juliusramirez.Member d ON c.memberID=d.memberID WHERE TOTAL >= 100";
+        ResultSet answer = stmt.executeQuery(query);
+        System.out.println("\nMembers who've spent over $100 in the last month.: ");
+        int i = 0;
+        while (answer != null && answer.next()) {
+            i++;
+            System.out.println("Name: " + answer.getString("name") + " Tier: " + answer.getString("tier"));
+        }
+        System.out.println();
+    }
 
 	/*------------------------------------------------------------------*
 	| Function queryFour()
@@ -1433,71 +1435,71 @@ public class Arcade {
 		ResultSet answer = null;
 
 		// Token purchase stats for last month.
-		String tokenPurchaseQuery = "SELECT sum(tokenamount) totaltok," +
-				" sum(cost) totalcost from " + BASE_TRANSACTION_TABLE_NAME + ", "
-				+ TOKEN_TRANSACTION_TABLE_NAME + " WHERE " +
-				BASE_TRANSACTION_TABLE_NAME + ".transactionid = " +
-				TOKEN_TRANSACTION_TABLE_NAME + ".transactionid " +
-				"AND memberid = " + memberID + " " +
-				"AND transactiondate >= add_months(trunc(sysdate, 'month'), -1)" +
-				" AND transactiondate < trunc(sysdate, 'month')";
+		String tokenPurchaseQuery = "SELECT sum(tokenamount) totaltok," + 
+		" sum(cost) totalcost from " + BASE_TRANSACTION_TABLE_NAME + ", "
+		+ TOKEN_TRANSACTION_TABLE_NAME + " WHERE " +
+		BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + 
+		TOKEN_TRANSACTION_TABLE_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		"AND transactiondate >= sysdate - 30 AND transactiondate <= sysdate";
 		answer = stmt.executeQuery(tokenPurchaseQuery);
 		if (answer.next()) {
-			System.out.println("\nYou spent $" +
-					answer.getFloat("totalcost")
-					+ " on " + answer.getInt("totaltok") +
-					" tokens last month.");
+			System.out.println("\nYou spent $" + 
+			answer.getFloat("totalcost")
+			+ " on " + answer.getInt("totaltok") + 
+			" tokens in the last month.");
 		} else {
-			System.out.println("You bought no video game tokens last month.");
+			System.out.println(
+				"You bought no video game tokens in the last month.");
 		}
 
 		// Gameplay stats for last month.
-		String gameTokensQuery = "SELECT sum(ticketsearned) totalearned,"
-				+ " sum(tokensspent) totalspent from " + BASE_TRANSACTION_TABLE_NAME
-				+ ", " + GAME_TRANSACTION_NAME + " WHERE "
-				+ BASE_TRANSACTION_TABLE_NAME + ".transactionid = "
-				+ GAME_TRANSACTION_NAME + ".transactionid " +
-				"AND memberid = " + memberID + " " +
-				"AND transactiondate >= add_months(trunc(sysdate, 'month'), -1)"
-				+ " AND transactiondate < trunc(sysdate, 'month')";
+		String gameTokensQuery = "SELECT sum(ticketsearned) totalearned," 
+		+ " sum(tokensspent) totalspent from " + BASE_TRANSACTION_TABLE_NAME
+		+ ", " + GAME_TRANSACTION_NAME + " WHERE " 
+		+ BASE_TRANSACTION_TABLE_NAME + ".transactionid = " 
+		+ GAME_TRANSACTION_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		"AND transactiondate >= sysdate - 30 AND transactiondate <= sysdate";
 		answer = stmt.executeQuery(gameTokensQuery);
 		if (answer.next()) {
 			System.out.println("\nYou spent " + answer.getInt("totalspent")
-					+ " token(s) on games last month, and earned "
-					+ answer.getInt("totalearned") + " tickets.");
+			+ " token(s) on games in the last month, and earned "
+			+ answer.getInt("totalearned") + " tickets.");
 		} else {
-			System.out.println("You played no games last month.");
+			System.out.println("You played no games in the last month.");
 		}
 
 		// Prize redemption stats for the last month.
-		String prizesQuery = "SELECT count(prizename) numprizes, sum(ticketsspent) totaltix from " +
-				BASE_TRANSACTION_TABLE_NAME + ", " + PRIZE_TRANSACTION_TABLE_NAME +
-				" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + PRIZE_TRANSACTION_TABLE_NAME
-				+ ".transactionid " +
-				"AND memberid = " + memberID + " " +
-				" AND transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month')";
+		String prizesQuery = 
+		"SELECT count(prizename) numprizes, sum(ticketsspent) totaltix from " +
+		BASE_TRANSACTION_TABLE_NAME + ", " + PRIZE_TRANSACTION_TABLE_NAME +
+		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " 
+		+ PRIZE_TRANSACTION_TABLE_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		" AND transactiondate >= sysdate - 30 AND transactiondate <= sysdate"; 
 		answer = stmt.executeQuery(prizesQuery);
 		if (answer.next()) {
 			System.out.println("\nYou redeemed " + answer.getInt("numprizes")
-					+ " prize(s) last month, spending a total of "
-					+ answer.getInt("totaltix") + " tickets.");
+			+ " prize(s) in the last month, spending a total of "
+			+ answer.getInt("totaltix") + " tickets.");
 		} else {
-			System.out.println("You did not redeem any tickets last month.");
+			System.out.println("You did not redeem any tickets in the last month.");
 		}
 
 		// Coupon redemption stats for the last month.
 		String couponQuery = "SELECT count(detailid) numredeems from " +
-				BASE_TRANSACTION_TABLE_NAME + ", " + COUPON_TRANSACTION_TABLE_NAME +
-				" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " + COUPON_TRANSACTION_TABLE_NAME
-				+ ".transactionid " +
-				"AND memberid = " + memberID + " " +
-				" AND transactiondate >= add_months(trunc(sysdate, 'month'), -1) AND transactiondate < trunc(sysdate, 'month')";
+		BASE_TRANSACTION_TABLE_NAME + ", " + COUPON_TRANSACTION_TABLE_NAME +
+		" WHERE " + BASE_TRANSACTION_TABLE_NAME + ".transactionid = " 
+		+ COUPON_TRANSACTION_TABLE_NAME + ".transactionid " +
+		"AND memberid = " + memberID + " " +
+		" AND transactiondate >= sysdate - 30 AND transactiondate <= sysdate"; 
 		answer = stmt.executeQuery(couponQuery);
 		if (answer.next()) {
 			System.out.println("\nYou redeemed " + answer.getInt("numredeems")
-					+ " coupon(s) last month.");
+			+ " coupon(s) in the last month.");
 		} else {
-			System.out.println("You did not redeem any coupons last month.");
+			System.out.println("You did not redeem any coupons in the last month.");
 		}
 
 		answer.close();
