@@ -20,40 +20,90 @@ public class Arcade {
 	private static final String TOKEN_PURCHASE_TIER_TABLE_NAME = "juliusramirez.TokenPurchaseTier";
 	private static final String TOKEN_TRANSACTION_TABLE_NAME = "juliusramirez.TokenTransaction";
 
-	public static void addPrize(Connection dbConn, String[] command) throws SQLException {
-		String prizeId = command[2];
-		String prizeName = command[3];
-		String ticketAmt = command[4];
+    public static void addPrize(Connection dbConn, String[] params) throws SQLException {
+        String prizeId = params[0];
+        String prizeName = params[1];
+        String ticketAmt = params[2];
 
-		String query = "INSERT INTO " + PRIZE_TABLE_NAME + """
-				(
-				    prizeID, name, amount
-				) VALUES ( """ + "'" + prizeId.replaceAll("'", "''") + "'," + "'" + prizeName.replaceAll("'", "''")
-				+ "'," + ticketAmt.replaceAll("'", "''") + " )";
+        String query = "INSERT INTO " + PRIZE_TABLE_NAME + """
+                (
+                    prizeID, name, baseprice
+                ) VALUES ( """ +
+                "'" + prizeId.replaceAll("'", "''") + "'," +
+                "'" + prizeName.replaceAll("'", "''") + "'," +
+                ticketAmt.replaceAll("'", "''") +
+                " )";
 
-		Statement stmt = dbConn.createStatement();
-		stmt.executeUpdate(query);
-		stmt.close();
-	}
+        Statement stmt = dbConn.createStatement();
+        stmt.executeUpdate(query);
+        stmt.close();
+        System.out.println("Successfully added prize " + prizeId);
+    }
+
+    public static String[] gatherPrizeInfo(Connection dbConn) throws SQLException {
+        Scanner scanner = new Scanner(System.in);
+        String[] information = new String[3];
+        int nextPrizeId;
+
+        ResultSet answer = null;
+        String findIdsQuery = "SELECT prizeID FROM " + MEMBER_TABLE_NAME + " ORDER BY prizeID DESC";
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(findIdsQuery);
+        if (answer != null && answer.next()) {
+            int lastMemId = answer.getInt(1);
+            answer.close();
+            nextPrizeId = lastMemId + 1;
+        } else {
+            nextPrizeId = 1;
+        }
+
+        if (stmt != null) {
+            stmt.close();
+        }
+        
+        information[1] = String.valueOf(nextPrizeId);
+        System.out.println("Enter the name of the prize.");
+        while (true) {
+            information[1] = scanner.nextLine();
+            if (information[1].matches("[a-zA-Z ]+")) {
+                break;
+            } else {
+                System.out.println("The prize name should contain only letters. Please try again below.");
+            }
+        }
+        System.out.println("Enter the number of tickets necessary to get this prize.");
+        while (true) {
+            information[2] = scanner.nextLine();
+            if (information[2].matches("\\d+")) {
+                break;
+            } else {
+                System.out.println("The cost in tickets should contain only numbers. Please try again below.");
+            }
+        }
+        scanner.close();
+        return information;
+    }
 
 	public static void delPrize(Connection dbConn, String[] command) throws SQLException {
 		String prizeId = command[2];
 		String query = "DELETE FROM " + PRIZE_TABLE_NAME + """
 				WHERE prizeID = """ + "'" + prizeId.replaceAll("'", "''") + "'";
 
-		Statement stmt = dbConn.createStatement();
-		stmt.executeUpdate(query);
-		stmt.close();
-	}
+        Statement stmt = dbConn.createStatement();
+        stmt.executeUpdate(query);
+        stmt.close();
+        System.out.println("Successfully deleted prize " + prizeId);
+    }
 
 	public static void searchPrize(Connection dbConn, String[] command) throws SQLException {
 		String prizeName = command[2];
 		ResultSet answer = null;
 
-		String query = "SELECT * FROM " + PRIZE_TABLE_NAME + """
-				WHERE name = """ + "'" + prizeName.replaceAll("'", "''") + "'";
-		Statement stmt = dbConn.createStatement();
-		answer = stmt.executeQuery(query);
+        String query = "SELECT * FROM " + PRIZE_TABLE_NAME + """
+                WHERE CONTAINS(name, """ +
+                "'" + prizeName.replaceAll("'", "''") + "')";
+        Statement stmt = dbConn.createStatement();
+        answer = stmt.executeQuery(query);
 
 		if (answer != null) {
 			// Get the data about the query result to learn
@@ -67,15 +117,20 @@ public class Arcade {
 			}
 			System.out.println();
 
-			// Use next() to advance cursor through the result
-			// tuples and print their attribute values
-			while (answer.next()) {
-				System.out.println(String.format("%-20s", answer.getString("prizeID")) + " | "
-						+ String.format("%-20s", answer.getString("name")) + " | "
-						+ String.format("%-10s", answer.getString("amount")));
-			}
-		}
-	}
+            // Use next() to advance cursor through the result
+            // tuples and print their attribute values
+            while (answer.next()) {
+                System.out.println(
+                        String.format("%-20s", answer.getString("prizeID"))
+                                + " | "
+                                + String.format("%-20s", answer.getString("name"))
+                                + " | "
+                                + String.format("%-10s", answer.getString("amount")));
+            }
+        } else {
+            System.out.println("Unable to find a prize with the name " + prizeName);
+        }
+    }
 
 	/*------------------------------------------------------------------*
 	|  Function addMember()
@@ -544,13 +599,17 @@ public class Arcade {
 	public static void processQuery(String[] command, Connection dbConn, Scanner scanner) throws SQLException {
 		if (command[0].equals("ADD")) {
 			if (command[1].equalsIgnoreCase("PRIZE")) {
-				addPrize(dbConn, command);
+                String[] prizeInfo = gatherPrizeInfo(dbConn);
+                addPrize(dbConn, prizeInfo);
 			} else if (command[1].equalsIgnoreCase("GAME")) {
 				// TODO: addGame
 			} else if (command[1].equalsIgnoreCase("MEMBER")) {
 				String[] userInput = gatherMemberInfo(dbConn, scanner);
 				addMember(userInput, dbConn);
-			}
+			} else {
+                System.out.println("Invalid command. You can add a prize, game or member with the command:");
+                System.out.println("ADD <PRIZE | GAME | MEMBER>");
+            }
 		} else if (command[0].equals("DELETE")) {
 			if (command[1].equalsIgnoreCase("PRIZE")) {
 				delPrize(dbConn, command);
@@ -558,16 +617,29 @@ public class Arcade {
 				// TODO: delGame
 			} else if (command[1].equalsIgnoreCase("MEMBER")) {
 				delMember(dbConn, scanner);
-			}
-		} else if (command[0].equals("UPDATE")) {
-			if (command[1].equalsIgnoreCase("PRIZE")) {
-				searchPrize(dbConn, command);
-			} else if (command[1].equalsIgnoreCase("GAME")) {
-				// TODO: searchGame
-			} else if (command[1].equalsIgnoreCase("MEMBER")) {
-				updateMember(dbConn, scanner);
-			}
-		} else if (command[0].equals("PLAY")) {
+			} else {
+                System.out.println("Invalid command. You can delete a prize, game or member with the command:");
+                System.out.println("DELETE <PRIZE | GAME | MEMBER>");
+            }
+		} else if (command[0].equals("SEARCH")) {
+            if (command[1].equalsIgnoreCase("PRIZE")) {
+                searchPrize(dbConn, command);
+            } else {
+                System.out.println("Invalid command. You can search prize, member and game names with the command:");
+                System.out.println("SEARCH <PRIZE | GAME | MEMBER>");
+            }
+        } else if (command[0].equals("UPDATE")) {
+            if (command[1].equalsIgnoreCase("PRIZE")) {
+                searchPrize(dbConn, command);
+            } else if (command[1].equalsIgnoreCase("GAME")) {
+                // TODO: searchGame
+            } else if (command[1].equalsIgnoreCase("MEMBER")) {
+                updateMember(dbConn, scanner);
+            } else {
+                System.out.println("Invalid command. You can update a prize, member or game with the command:");
+                System.out.println("UPDATE <PRIZE | GAME | MEMBER>");
+            }
+        } else if (command[0].equals("PLAY")) {
 			// TODO: Implement function that stores a player's score from a game.
 		} else if (command[0].equals("QUERY")) {
 			if (command[1].equalsIgnoreCase("ONE")) {
