@@ -1369,7 +1369,7 @@ public class Arcade {
             if (information[1].matches("[0-9]+")) {
                 break;
             } else {
-                System.out.println("Name should contain only numberss. Please enter again: ");
+                System.out.println("Cost should contain only numbers. Please enter again: ");
             }
         }
         System.out.println("Enter game name: ");
